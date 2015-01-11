@@ -23,6 +23,8 @@ var/
 *.egg
 
 # Project Files
+.idea/
+venv/
 test/data/
 
 # PyInstaller

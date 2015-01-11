@@ -1,44 +1,51 @@
+#!/usr/bin/env python3
 import sys
+from pprint import pprint
+
+from pgparse.model import PGDump
 
 
-excluded_names = None
-included_names = None
+def main():
+    excluded_names = None
+    included_names = None
 
-mode = None
-for a in sys.argv:
-    if a.startswith('--include='):
-        included_names = a[10:].strip().split(',')
-    if a.startswith('--exclude='):
-        excluded_names = a[10:].strip().split(',')
-    if a.startswith('--mode='):
-        mode = a[7:]
+    mode = None
+    for a in sys.argv:
+        if a.startswith('--include='):
+            included_names = a[10:].strip().split(',')
+        if a.startswith('--exclude='):
+            excluded_names = a[10:].strip().split(',')
+        if a.startswith('--mode='):
+            mode = a[7:].lower()
 
-current_name = None
-for l in sys.stdin:
-    if l.startswith('-- Name: '):
-        current_name = l[9:l.find(';')]
-        tp = l[l.find('Type: ') + 6:l.find(';', l.find('Type: '))]
-        if 'Type: SEQUENCE' in l:
-            # same name as its table
-            if mode in ['list']:
-                print tp + ':', current_name
-        else:
-            if mode in ['list']:
-                print tp + ':', current_name
-    if l.startswith('-- Data for Name: '):
-        current_name = l[18:l.find(';')]
-        if mode in ['list']:
-            print 'DATA:', current_name
+    if not mode:
+        mode = 'help'
+
+    dump = PGDump.parse(sys.stdin)
+
+    if mode == 'help':
+        print('usage: pg-parse --mode=[summary|filter|help]')
+
+    elif mode == 'summary':
+        pprint(dump.get_section_types())
+
+    elif mode == 'filter':
+        def filter_sections(section):
+            if included_names is not None:
+                if section.name not in included_names:
+                    return False
+            if excluded_names is not None:
+                if section.name in excluded_names:
+                    return False
+            return True
+
+        for s in dump.sections:
+            if filter_sections(s):
+                print(s.get_full_section())
+
+    else:
+        print('Invalid mode given')
 
 
-    is_active = True
-    if included_names is not None:
-        is_active = current_name in included_names
-    if excluded_names is not None:
-        is_active = current_name not in excluded_names
-
-    if not is_active:
-        continue
-    if mode in [None, 'filter']:
-        print l,
-
+if __name__ == '__main__':
+    main()
